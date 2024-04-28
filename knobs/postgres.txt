@@ -7,14 +7,6 @@ enable_indexscan
 enable_material
 enable_mergejoin
 enable_nestloop
-enable_parallel_append
 enable_parallel_hash
-enable_partition_pruning
 enable_seqscan
 enable_sort
-enable_tidscan
-geqo
-jit
-jit_expressions
-jit_tuple_deforming
-parallel_leader_participation

@@ -38,5 +38,4 @@ WITH default_plans (query_path, walltime) AS
 SELECT *
 FROM results
 WHERE rank = 1
-  AND query_path like '%%:path%%'
 ORDER BY savings DESC;

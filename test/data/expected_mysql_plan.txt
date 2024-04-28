@@ -1,6 +1,0 @@
-{
-  "query_block": {
-    "select_id": 1,
-    "message": "No tables used"
-  }
-}

@@ -8,7 +8,7 @@ import os
 import sys
 
 import connectors.connector
-from connectors import mysql_connector, duckdb_connector, postgres_connector, presto_connector, spark_connector
+from connectors import postgres_connector, postgres_prior_connector
 from utils.arguments_parser import get_parser
 from utils.custom_logging import logger
 from autosteer.dp_exploration import explore_optimizer_configs
@@ -29,6 +29,8 @@ def inference_mode(connector, benchmark: str, retrain: bool, create_datasets: bo
 def get_connector_type(connector: str) -> Type[connectors.connector.DBConnector]:
     if connector == 'postgres':
         return postgres_connector.PostgresConnector
+    elif connector == 'postgres_prior':
+        return postgres_prior_connector.PostgresConnector
     elif connector == 'mysql':
         return mysql_connector.MySqlConnector
     elif connector == 'spark':

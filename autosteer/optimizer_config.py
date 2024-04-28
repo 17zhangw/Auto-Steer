@@ -122,8 +122,10 @@ class HintSetExploration:
                 logger.warning('DP: get_next_hint_sets() results in an ArithmeticError %s', err)
                 configs = None
         self.current_dp_level += 1
-        # Remove these configs where a knob has unmet dependencies (e.g. its dependent optimizers are not part of the config)
-        configs = list(filter(self.check_config_for_dependencies, configs))
+
+        if configs is not None:
+            # Remove these configs where a knob has unmet dependencies (e.g. its dependent optimizers are not part of the config)
+            configs = list(filter(self.check_config_for_dependencies, configs))
         return configs
 
     def get_disabled_opts_rules(self):

@@ -29,10 +29,6 @@ class DBConnector:
         """Disable the provided list of knobs"""
         raise NotImplementedError()
 
-    def get_knob(self, knob: str) -> bool:
-        """Get current status of a knob"""
-        raise NotImplementedError()
-
     def explain(self, query: str) -> str:
         """Explain a query and return its plan"""
         raise NotImplementedError()
