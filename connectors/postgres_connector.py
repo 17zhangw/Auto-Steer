@@ -14,18 +14,19 @@ from utils.custom_logging import logger
 class PostgresConnector(DBConnector):
     """This class handles the connection to the tested PostgreSQL database"""
 
-    def __init__(self):
+    def __init__(self, config):
         super().__init__()
         # get connection config from config-file
         self.config = configparser.ConfigParser()
-        self.config.read(os.path.dirname(__file__) + '/../configs/postgres.cfg')
+        self.config.read(config)
         defaults = self.config['DEFAULT']
         user = defaults['DB_USER']
         database = defaults['DB_NAME']
         password = defaults['DB_PASSWORD']
         host = defaults['DB_HOST']
+        port = defaults['DB_PORT']
         self.timeout = defaults['TIMEOUT_MS']
-        self.postgres_connection_string = f'postgresql://{user}:{password}@{host}:5432/{database}'
+        self.postgres_connection_string = f'postgresql://{user}:{password}@{host}:{port}/{database}'
         self.connect()
 
     def connect(self) -> None:

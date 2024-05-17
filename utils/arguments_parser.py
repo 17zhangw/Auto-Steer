@@ -15,4 +15,7 @@ def get_parser():
     parser.add_argument('--benchmark', help='path to a directory with SQL files', type=str)
     parser.add_argument('--explain', help='explain the query', action='store_true')
     parser.add_argument('--repeats', help='repeat benchmark', type=int, default=1)
+
+    parser.add_argument('--config', default="configs/postgres.cfg")
+    parser.add_argument('--output-dir', default="results")
     return parser

@@ -11,6 +11,8 @@ import os
 import json
 from utils.custom_logging import logger
 
+FORCES = ["no_forceseq", "no_forceidx", "no_forceidxbase"]
+
 
 def get_aliases(sql_query):
     tree = pglast.parse_sql(sql_query)
@@ -21,22 +23,24 @@ def get_aliases(sql_query):
 class PostgresConnector(DBConnector):
     """This class handles the connection to the tested PostgreSQL database"""
 
-    def __init__(self):
+    def __init__(self, config):
         super().__init__()
         # get connection config from config-file
         self.config = configparser.ConfigParser()
-        self.config.read(os.path.dirname(__file__) + '/../configs/postgres.cfg')
+        self.config.read(config)
         defaults = self.config['DEFAULT']
         user = defaults['DB_USER']
         database = defaults['DB_NAME']
         password = defaults['DB_PASSWORD']
         host = defaults['DB_HOST']
+        port = defaults['DB_PORT']
         self.timeout = defaults['TIMEOUT_MS']
-        self.postgres_connection_string = f'postgresql://{user}:{password}@{host}:5434/{database}'
+        self.postgres_connection_string = f'postgresql://{user}:{password}@{host}:{port}/{database}'
         self.connect()
 
         self.forceseq = False
         self.forceidx = False
+        self.forceidxbase = False
 
     def connect(self) -> None:
         self.connection = psycopg2.connect(self.postgres_connection_string)
@@ -55,13 +59,13 @@ class PostgresConnector(DBConnector):
         all_knobs = set(PostgresConnector.get_knobs())
         statements = ''
         for knob in all_knobs:
-            if knob in ["no_forceseq", "no_forceidx"]:
+            if knob in FORCES:
                 continue
 
             if knob not in knobs:
                 statements += f'SET {knob} to ON;'
         for knob in knobs:
-            if knob in ["no_forceseq", "no_forceidx"]:
+            if knob in FORCES:
                 continue
 
             statements += f'SET {knob} to OFF;'
@@ -76,15 +80,19 @@ class PostgresConnector(DBConnector):
         # Disabling no force seq means force seq.
         self.forceseq = ("no_forceseq" in knobs)
         self.forceidx = ("no_forceidx" in knobs)
+        self.forceidxbase = ("no_forceidxbase" in knobs)
 
     def distort_query(self, query):
         # Force sequential dominates force index.
         aliases = get_aliases(query)
         if self.forceseq:
-            prefix = "/*+ " + " ".join([f"SeqScan({t})" for t in aliases]) + " */ "
+            prefix = "/*+ " + " ".join([f"SeqScan({t})" for t in aliases]) + " Set(enable_nestloop OFF) */ "
             query = prefix + query
         elif self.forceidx:
-            prefix = "/*+ " + " ".join([f"IndexOnlyScan({t})" for t in aliases]) + " */ "
+            prefix = "/*+ " + " ".join([f"NoSeqScan({t})" for t in aliases]) + " Set(enable_hashjoin OFF) Set(enable_mergejoin OFF) */ "
+            query = prefix + query
+        elif self.forceidxbase:
+            prefix = "/*+ " + " ".join([f"NoSeqScan({t})" for t in aliases]) + " */ "
             query = prefix + query
 
         logger.info(f"Preparing query {query}")
@@ -114,4 +122,4 @@ class PostgresConnector(DBConnector):
     def get_knobs() -> list:
         """Static method returning all knobs defined for this connector"""
         with open(os.path.dirname(__file__) + '/../knobs/postgres.txt', 'r', encoding='utf-8') as f:
-            return [line.replace('\n', '') for line in f.readlines()] + ["no_forceseq", "no_forceidx"]
+            return [line.replace('\n', '') for line in f.readlines()] + FORCES

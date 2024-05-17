@@ -34,25 +34,25 @@ class HintSet:
 
 
 def get_query_plan(args: tuple) -> HintSet:
-    connector_type, sql_query, hintset = args
-    connector = connector_type()
+    connector_type, config, sql_query, hintset = args
+    connector = connector_type(config)
     knobs = hintset.get_all_knobs()
     connector.set_disabled_knobs(knobs)
     hintset.plan = connector.explain(sql_query)
     return hintset
 
 
-def approximate_query_span(connector_type, sql_query: str, get_json_query_plan, find_alternative_knobs=False, batch_wise=False) -> list[HintSet]:
+def approximate_query_span(connector_type, config, sql_query: str, get_json_query_plan, find_alternative_knobs=False, batch_wise=False) -> list[HintSet]:
     # Create singleton hint-sets
     knobs = np.array(connector_type.get_knobs())
     hint_sets = np.array([HintSet({knob}, None) for knob in knobs])
     # To speed up the query span approximation, we can submit multiple queries in parallel
     with Pool(N_THREADS) as thread_pool:
         query_span: list[HintSet] = []
-        default_plan = get_json_query_plan((connector_type, sql_query, HintSet(set(), None)))
+        default_plan = get_json_query_plan((connector_type, config, sql_query, HintSet(set(), None)))
         query_span.append(default_plan)
 
-        args = [(connector_type, sql_query, knob) for knob in hint_sets]
+        args = [(connector_type, config, sql_query, knob) for knob in hint_sets]
         results = np.array(list(thread_pool.map(get_json_query_plan, args)))
 
         default_plan_hash = hash(str(default_plan.plan))
@@ -90,7 +90,7 @@ def approximate_query_span(connector_type, sql_query: str, get_json_query_plan, 
                         query_span.append(optimizer)
                     default_plan = get_json_query_plan((connector_type, sql_query, all_effective_knobs))
                     default_plan_hash = hash(default_plan.plan)
-                    args = [(connector_type, sql_query, HintSet(set(hs.knobs), all_effective_knobs)) for hs in hint_sets]
+                    args = [(connector_type, config, sql_query, HintSet(set(hs.knobs), all_effective_knobs)) for hs in hint_sets]
                     results = np.array(list(thread_pool.map(get_json_query_plan, args)))
                     hashes = np.array(list(thread_pool.map(lambda res: hash(res.plan), results)))
                     effective_knobs_indexes = np.where((hashes != default_plan_hash) & (hashes != failed_plan_hash))
@@ -104,7 +104,7 @@ def approximate_query_span(connector_type, sql_query: str, get_json_query_plan, 
                     effective_knob = new_effective_knobs.get()
                     query_span.append(effective_knob)
                     default_plan_hash = hash(effective_knob.plan)
-                    args = [(connector_type, sql_query, HintSet(hs.knobs, effective_knob)) for hs in hint_sets]
+                    args = [(connector_type, config, sql_query, HintSet(hs.knobs, effective_knob)) for hs in hint_sets]
                     results = np.array(list(thread_pool.map(get_json_query_plan, args)))
                     hashes = np.array(list(thread_pool.map(lambda res: hash(res.plan), results)))
                     effective_knobs_indexes = np.where((hashes != default_plan_hash) & (hashes != failed_plan_hash))
@@ -130,13 +130,13 @@ def serialize_dependencies(query_path: str, hint_set: HintSet):
             storage.register_optimizer_dependency(query_path, ','.join(sorted(hint_set.knobs)), knob)
 
 
-def run_get_query_span(connector_type, benchmark, query):
+def run_get_query_span(connector_type, config, benchmark, query):
     query_path = f'{benchmark}/{query}'
     logger.info('Approximate query span for query: %s', query_path)
     storage.register_query(query_path)
 
     sql = storage.read_sql_file(query_path)
-    query_span = approximate_query_span(connector_type, sql, get_query_plan, find_alternative_knobs=True, batch_wise=False)
+    query_span = approximate_query_span(connector_type, config, sql, get_query_plan, find_alternative_knobs=True, batch_wise=False)
 
     # Serialize the approximated query span in the database
     for optimizer in query_span:  # pylint: disable=not-an-iterable

@@ -22,11 +22,12 @@ SCHEMA_FILE = 'schema.sql'
 ENGINE = None
 TESTED_DATABASE = None
 BENCHMARK_ID = None
+RESULTS_DIR = None
 
 
 def _db():
     global ENGINE
-    url = f'sqlite:///results/{TESTED_DATABASE}.sqlite'
+    url = f'sqlite:///{RESULTS_DIR}/{TESTED_DATABASE}.sqlite'
     logger.debug('Connect to database: %s', url)
     ENGINE = create_engine(url)
 

@@ -16,9 +16,9 @@ from autosteer.query_span import run_get_query_span
 from inference.train import train_tcnn
 
 
-def approx_query_span_and_run(connector: Type[connectors.connector.DBConnector], benchmark: str, query: str):
-    run_get_query_span(connector, benchmark, query)
-    connector = connector()
+def approx_query_span_and_run(connector: Type[connectors.connector.DBConnector], config, benchmark: str, query: str):
+    run_get_query_span(connector, config, benchmark, query)
+    connector = connector(config)
     explore_optimizer_configs(connector, f'{benchmark}/{query}')
 
 
@@ -45,6 +45,9 @@ def get_connector_type(connector: str) -> Type[connectors.connector.DBConnector]
 if __name__ == '__main__':
     args = get_parser().parse_args()
 
+    # Set the output directory.
+    storage.RESULTS_DIR = args.output_dir
+
     ConnectorType = get_connector_type(args.database)
     storage.TESTED_DATABASE = ConnectorType.get_name()
 
@@ -66,4 +69,4 @@ if __name__ == '__main__':
         logger.info('Found the following SQL files: %s', queries)
         for query in queries:
             logger.info('run Q%s...', query)
-            approx_query_span_and_run(ConnectorType, args.benchmark, query)
+            approx_query_span_and_run(ConnectorType, args.config, args.benchmark, query)
