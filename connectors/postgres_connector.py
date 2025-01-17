@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 #
 """This module provides a connection to the PostgreSQL database for benchmarking"""
-import psycopg2
+import psycopg
 from connectors.connector import DBConnector
 import configparser
 import time
@@ -30,7 +30,11 @@ class PostgresConnector(DBConnector):
         self.connect()
 
     def connect(self) -> None:
-        self.connection = psycopg2.connect(self.postgres_connection_string)
+        self.connection = psycopg.connect(
+            self.postgres_connection_string,
+            autocommit=True,
+            prepare_threshold=None,
+        )
         self.cursor = self.connection.cursor()
         self.cursor.execute(f'set statement_timeout to {self.timeout}; commit;')
 

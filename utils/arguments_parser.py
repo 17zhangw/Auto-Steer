@@ -18,4 +18,5 @@ def get_parser():
 
     parser.add_argument('--config', default="configs/postgres.cfg")
     parser.add_argument('--output-dir', default="results")
+    parser.add_argument('--output-name', default=None)
     return parser

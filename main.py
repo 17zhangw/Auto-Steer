@@ -42,14 +42,15 @@ def get_connector_type(connector: str) -> Type[connectors.connector.DBConnector]
     logger.fatal('Unknown connector %s', connector)
 
 
-if __name__ == '__main__':
-    args = get_parser().parse_args()
-
+def run(args):
     # Set the output directory.
     storage.RESULTS_DIR = args.output_dir
 
     ConnectorType = get_connector_type(args.database)
-    storage.TESTED_DATABASE = ConnectorType.get_name()
+    if args.output_name is not None:
+        storage.TESTED_DATABASE = args.output_name
+    else:
+        storage.TESTED_DATABASE = ConnectorType.get_name()
 
     if args.benchmark is None or not os.path.isdir(args.benchmark):
         logger.fatal('Cannot access the benchmark directory containing the sql files with path=%s', args.benchmark)
@@ -70,3 +71,8 @@ if __name__ == '__main__':
         for query in queries:
             logger.info('run Q%s...', query)
             approx_query_span_and_run(ConnectorType, args.config, args.benchmark, query)
+
+
+if __name__ == '__main__':
+    args = get_parser().parse_args()
+    run(args)
