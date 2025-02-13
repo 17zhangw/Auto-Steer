@@ -1,42 +1,41 @@
--- TPC-H Query 21
 
 select
-        s.name,
-        count(*) as numwait
+	s_name,
+	count(*) as numwait
 from
-        supplier s,
-        lineitem l1,
-        orders o,
-        nation n
+	supplier,
+	lineitem l1,
+	orders,
+	nation
 where
-        s.suppkey = l1.suppkey
-        and o.orderkey = l1.orderkey
-        and o.orderstatus = 'F'
-        and l1.receiptdate > l1.commitdate
-        and exists (
-                select
-                        *
-                from
-                        lineitem l2
-                where
-                        l2.orderkey = l1.orderkey
-                        and l2.suppkey <> l1.suppkey
-        )
-        and not exists (
-                select
-                        *
-                from
-                        lineitem l3
-                where
-                        l3.orderkey = l1.orderkey
-                        and l3.suppkey <> l1.suppkey
-                        and l3.receiptdate > l3.commitdate
-        )
-        and s.nationkey = n.nationkey
-        and n.name = 'SAUDI ARABIA'
+	s_suppkey = l1.l_suppkey
+	and o_orderkey = l1.l_orderkey
+	and o_orderstatus = 'F'
+	and l1.l_receiptdate > l1.l_commitdate
+	and exists (
+		select
+			*
+		from
+			lineitem l2
+		where
+			l2.l_orderkey = l1.l_orderkey
+			and l2.l_suppkey <> l1.l_suppkey
+	)
+	and not exists (
+		select
+			*
+		from
+			lineitem l3
+		where
+			l3.l_orderkey = l1.l_orderkey
+			and l3.l_suppkey <> l1.l_suppkey
+			and l3.l_receiptdate > l3.l_commitdate
+	)
+	and s_nationkey = n_nationkey
+	and n_name = 'CANADA'
 group by
-        s.name
+	s_name
 order by
-        numwait desc,
-        s.name
-limit 100
+	numwait desc,
+	s_name
+limit 100;

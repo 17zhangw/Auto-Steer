@@ -1,22 +1,21 @@
--- TPC-H Query 13
 
 select
-        c_count,
-        count(*) as custdist
+	c_count,
+	count(*) as custdist
 from
-        (
-                select
-                        c.custkey,
-                        count(o.orderkey) c_count
-                from
-                        customer c left outer join orders o on
-                                c.custkey = o.custkey
-                                and o.comment not like '%special%requests%'
-                group by
-                        c.custkey
-        ) as c_orders
+	(
+		select
+			c_custkey,
+			count(o_orderkey)
+		from
+			customer left outer join orders on
+				c_custkey = o_custkey
+				and o_comment not like '%unusual%requests%'
+		group by
+			c_custkey
+	) as c_orders (c_custkey, c_count)
 group by
-        c_count
+	c_count
 order by
-        custdist desc,
-        c_count desc
+	custdist desc,
+	c_count desc;

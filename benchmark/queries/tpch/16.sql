@@ -1,32 +1,30 @@
--- TPC-H Query 16
-
 select
-        p.brand,
-        p.type,
-        p.size,
-        count(distinct ps.suppkey) as supplier_cnt
+	p_brand,
+	p_type,
+	p_size,
+	count(distinct ps_suppkey) as supplier_cnt
 from
-        partsupp ps,
-        part p
+	partsupp,
+	part
 where
-        p.partkey = ps.partkey
-        and p.brand <> 'Brand#45'
-        and p.type not like 'MEDIUM POLISHED%'
-        and p.size in (49, 14, 23, 45, 19, 3, 36, 9)
-        and ps.suppkey not in (
-                select
-                        s.suppkey
-                from
-                        supplier s
-                where
-                        s.comment like '%Customer%Complaints%'
-        )
+	p_partkey = ps_partkey
+	and p_brand <> 'Brand#32'
+	and p_type not like 'SMALL BURNISHED%'
+	and p_size in (3, 38, 9, 4, 12, 10, 42, 40)
+	and ps_suppkey not in (
+		select
+			s_suppkey
+		from
+			supplier
+		where
+			s_comment like '%Customer%Complaints%'
+	)
 group by
-        p.brand,
-        p.type,
-        p.size
+	p_brand,
+	p_type,
+	p_size
 order by
-        supplier_cnt desc,
-        p.brand,
-        p.type,
-        p.size
+	supplier_cnt desc,
+	p_brand,
+	p_type,
+	p_size;

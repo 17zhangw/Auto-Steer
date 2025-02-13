@@ -1,15 +1,14 @@
--- TPC-H Query 14
 
 select
-        100.00 * sum(case
-                when p.type like 'PROMO%'
-                        then l.extendedprice * (1 - l.discount)
-                else 0
-        end) / sum(l.extendedprice * (1 - l.discount)) as promo_revenue
+	100.00 * sum(case
+		when p_type like 'PROMO%'
+			then l_extendedprice * (1 - l_discount)
+		else 0
+	end) / sum(l_extendedprice * (1 - l_discount)) as promo_revenue
 from
-        lineitem l,
-        part p
+	lineitem,
+	part
 where
-        l.partkey = p.partkey
-        and l.shipdate >= date '1995-09-01'
-        and l.shipdate < date '1995-10-01'
+	l_partkey = p_partkey
+	and l_shipdate >= date '1994-07-01'
+	and l_shipdate < date '1994-07-01' + interval '1' month;

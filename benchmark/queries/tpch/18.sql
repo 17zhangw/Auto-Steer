@@ -1,35 +1,34 @@
--- TPC-H Query 18
 
 select
-        c.name,
-        c.custkey,
-        o.orderkey,
-        o.orderdate,
-        o.totalprice,
-        sum(l.quantity)
+	c_name,
+	c_custkey,
+	o_orderkey,
+	o_orderdate,
+	o_totalprice,
+	sum(l_quantity)
 from
-        customer c,
-        orders o,
-        lineitem l
+	customer,
+	orders,
+	lineitem l1
 where
-        o.orderkey in (
-                select
-                        l2.orderkey
-                from
-                        lineitem l2
-                group by
-                        l2.orderkey having
-                                sum(l2.quantity) > 300
-        )
-        and c.custkey = o.custkey
-        and o.orderkey = l.orderkey
+	o_orderkey in (
+		select
+			l_orderkey
+		from
+			lineitem l2
+		group by
+			l_orderkey having
+				sum(l_quantity) > 312
+	)
+	and c_custkey = o_custkey
+	and o_orderkey = l_orderkey
 group by
-        c.name,
-        c.custkey,
-        o.orderkey,
-        o.orderdate,
-        o.totalprice
+	c_name,
+	c_custkey,
+	o_orderkey,
+	o_orderdate,
+	o_totalprice
 order by
-        o.totalprice desc,
-        o.orderdate
-limit 100
+	o_totalprice desc,
+	o_orderdate
+limit 100;

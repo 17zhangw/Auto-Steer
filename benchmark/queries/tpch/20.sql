@@ -1,39 +1,38 @@
--- TPC-H Query 20
 
 select
-        s.name,
-        s.address
+	s_name,
+	s_address
 from
-        supplier s,
-        nation n
+	supplier,
+	nation
 where
-        s.suppkey in (
-                select
-                        ps.suppkey
-                from
-                        partsupp ps
-                where
-                        ps.partkey in (
-                                select
-                                        p.partkey
-                                from
-                                        part p
-                                where
-                                        p.name like 'forest%'
-                        )
-                        and ps.availqty > (
-                                select
-                                        0.5 * sum(l.quantity)
-                                from
-                                        lineitem l
-                                where
-                                        l.partkey = ps.partkey
-                                        and l.suppkey = ps.suppkey
-                                        and l.shipdate >= date '1994-01-01'
-                                        and l.shipdate < date '1995-01-01'
-                        )
-        )
-        and s.nationkey = n.nationkey
-        and n.name = 'CANADA'
+	s_suppkey in (
+		select
+			ps_suppkey
+		from
+			partsupp
+		where
+			ps_partkey in (
+				select
+					p_partkey
+				from
+					part
+				where
+					p_name like 'red%'
+			)
+			and ps_availqty > (
+				select
+					0.5 * sum(l_quantity)
+				from
+					lineitem
+				where
+					l_partkey = ps_partkey
+					and l_suppkey = ps_suppkey
+					and l_shipdate >= date '1993-01-01'
+					and l_shipdate < date '1993-01-01' + interval '1' year
+			)
+	)
+	and s_nationkey = n_nationkey
+	and n_name = 'ALGERIA'
 order by
-        s.name
+	s_name;
