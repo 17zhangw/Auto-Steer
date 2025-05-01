@@ -10,7 +10,7 @@ import socket
 import sys
 import os
 from datetime import datetime
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.sql import text
 from sqlalchemy.exc import IntegrityError
 import unittest
@@ -29,7 +29,7 @@ def _db():
     global ENGINE
     url = f'sqlite:///{RESULTS_DIR}/{TESTED_DATABASE}.sqlite'
     logger.debug('Connect to database: %s', url)
-    ENGINE = create_engine(url)
+    ENGINE = create_engine(url, isolation_level="AUTOCOMMIT")
 
     @event.listens_for(ENGINE, 'connect')
     def connect(dbapi_conn, _):
@@ -50,7 +50,7 @@ def _db():
     for statement in schema.split(';'):
         if len(statement.strip()) > 0:
             try:
-                conn.execute(statement)
+                conn.execute(text(statement))
             except Exception as e:
                 print(e)
                 raise e
@@ -62,10 +62,10 @@ def register_benchmark(name: str) -> int:
     with _db() as conn:
         try:
             stmt = text('INSERT INTO benchmarks (name) VALUES (:name)')
-            conn.execute(stmt, name=name)
+            conn.execute(stmt, {"name": name})
         except IntegrityError:
             pass
-        return conn.execute('SELECT benchmarks.id FROM benchmarks WHERE name=:name', name=name).fetchone()[0]
+        return conn.execute(text('SELECT benchmarks.id FROM benchmarks WHERE name=:name'), {"name":name}).fetchone()[0]
 
 
 def register_query(query_path):
@@ -73,17 +73,16 @@ def register_query(query_path):
     with _db() as conn:
         try:
             stmt = text('INSERT INTO queries (benchmark_id, query_path, result_fingerprint) VALUES (:benchmark_id, :query_path, :result_fingerprint )')
-            conn.execute(stmt, benchmark_id=BENCHMARK_ID, query_path=query_path, result_fingerprint=None)
+            conn.execute(stmt, {"benchmark_id":BENCHMARK_ID, "query_path":query_path, "result_fingerprint":None})
         except IntegrityError:
             pass
 
 
 def register_query_fingerprint(query_path, fingerprint):
     with _db() as conn:
-        result = conn.execute(text('SELECT result_fingerprint FROM queries WHERE query_path= :query_path'), query_path=query_path).fetchone()[0]
+        result = conn.execute(text('SELECT result_fingerprint FROM queries WHERE query_path= :query_path'), {"query_path":query_path}).fetchone()[0]
         if result is None:
-            conn.execute(text('UPDATE queries SET result_fingerprint = :fingerprint WHERE query_path = :query_path;'),
-                         fingerprint=fingerprint, query_path=query_path)
+            conn.execute(text('UPDATE queries SET result_fingerprint = :fingerprint WHERE query_path = :query_path;'), {"fingerprint":fingerprint, "query_path":query_path})
             return True
         elif result != fingerprint:
             return False  # fingerprints do not match
@@ -96,7 +95,7 @@ def register_optimizer(query_path, optimizer, required: bool):
             table = 'query_effective_optimizers' if not required else 'query_required_optimizers'
             stmt = text(f'INSERT INTO {table} (query_id, optimizer) '
                         'SELECT id, :optimizer FROM queries WHERE query_path = :query_path')
-            conn.execute(stmt, table=table, optimizer=optimizer, query_path=query_path)
+            conn.execute(stmt, {"table":table, "optimizer":optimizer, "query_path":query_path})
         except IntegrityError:
             pass  # do not store duplicates
 
@@ -106,7 +105,7 @@ def register_optimizer_dependency(query_path, optimizer, dependency):
         try:
             stmt = text('INSERT INTO query_effective_optimizers_dependencies (query_id, optimizer, dependent_optimizer) '
                         'SELECT id, :optimizer, :dependency FROM queries WHERE query_path = :query_path')
-            conn.execute(stmt, optimizer=optimizer, dependency=dependency, query_path=query_path)
+            conn.execute(stmt, {"optimizer":optimizer, "dependency":dependency, "query_path":query_path})
         except IntegrityError:
             pass  # do not store duplicates
 
@@ -167,7 +166,7 @@ def _get_optimizers(table_name, query_path, projections):
                FROM queries q, {table_name} qro
                WHERE q.query_path=:query_path AND q.id = qro.query_id AND optimizer != ''
                """
-        cursor = conn.execute(stmt, query_path=query_path)
+        cursor = conn.execute(text(stmt), {"query_path":query_path})
         return cursor.fetchall()
 
 
@@ -191,7 +190,7 @@ def get_df(query, params):
 
 def select_query(query, params):
     with _db() as conn:
-        cursor = conn.execute(query, *params)
+        cursor = conn.execute(text(query), params)
         return [row[0] for row in cursor.fetchall()]
 
 
@@ -206,7 +205,7 @@ def register_query_config(query_path, disabled_rules, query_plan: dict, plan_has
               AND q.query_path = :query_path
               AND qoc.hash = :plan_hash
               AND qoc.disabled_rules != :disabled_rules"""
-    result = select_query(check_for_duplicated_plans, {query_path: query_path, plan_hash: plan_hash, disabled_rules: disabled_rules})
+    result = select_query(check_for_duplicated_plans, {"query_path": query_path, "plan_hash": plan_hash, "disabled_rules": disabled_rules})
     is_duplicate = result[0] > 0
 
     with _db() as conn:
@@ -216,8 +215,13 @@ def register_query_config(query_path, disabled_rules, query_plan: dict, plan_has
                    (query_id, disabled_rules, query_plan, num_disabled_rules, hash, duplicated_plan) 
                    SELECT id, :disabled_rules, :query_plan_processed , :num_disabled_rules, :plan_hash, :is_duplicate FROM queries WHERE query_path = '{query_path}'
                    """
-            conn.execute(stmt, disabled_rules=str(disabled_rules), query_plan_processed=query_plan, num_disabled_rules=num_disabled_rules,
-                         plan_hash=plan_hash, is_duplicate=is_duplicate)
+            conn.execute(text(stmt), {
+                            "disabled_rules":str(disabled_rules),
+                            "query_plan_processed":query_plan,
+                            "num_disabled_rules":num_disabled_rules,
+                            "plan_hash":plan_hash,
+                            "is_duplicate":is_duplicate
+                         })
         except IntegrityError:
             pass  # OK! Query configuration has already been inserted
 
@@ -246,8 +250,15 @@ def register_measurement(query_path, disabled_rules, walltime, input_data_size, 
                 SELECT id, :walltime, :host, :time, :input_data_size, :nodes FROM query_optimizer_configs 
                 WHERE query_id = (SELECT id FROM queries WHERE query_path = :query_path) AND disabled_rules = :disabled_rules 
                 """
-        conn.execute(query, walltime=walltime, host=socket.gethostname(), time=now.strftime('%m/%d/%y, %h:%m:%s'), input_data_size=input_data_size, nodes=nodes,
-                     query_path=query_path, disabled_rules=str(disabled_rules))
+        conn.execute(text(query), {
+            "walltime":walltime,
+            "host":socket.gethostname(),
+            "time":now.strftime('%m/%d/%y, %h:%m:%s'),
+            "input_data_size":input_data_size,
+            "nodes":nodes,
+            "query_path":query_path,
+            "disabled_rules":str(disabled_rules)
+        })
 
 
 def median_runtimes():
@@ -284,7 +295,7 @@ def best_alternative_configuration(benchmark=None):
     stmt = read_sql_file('best_alternative_queries.sql')
 
     with _db() as conn:
-        cursor = conn.execute(stmt, path=benchmark)
+        cursor = conn.execute(text(stmt), {"path":benchmark})
         return [OptimizerConfigResult(*row) for row in cursor.fetchall()]
 
 

@@ -28,6 +28,7 @@ class PostgresConnector(DBConnector):
         self.timeout = defaults['TIMEOUT_MS']
         self.postgres_connection_string = f'postgresql://{user}:{password}@{host}:{port}/{database}'
         self.connect()
+        self.disables = set()
 
     def connect(self) -> None:
         self.connection = psycopg.connect(
@@ -52,6 +53,7 @@ class PostgresConnector(DBConnector):
                 statements += f'SET {knob} to ON;'
         for knob in knobs:
             statements += f'SET {knob} to OFF;'
+            self.disables.add(knob)
 
         while True:
             try:
@@ -60,14 +62,31 @@ class PostgresConnector(DBConnector):
             except Exception as e:
                 logger.warn(f"Error with setting knobs: {e}")
 
+    def _rewrite_with_disables(self, query):
+        if "/*+" in query:
+            assert "*/" in query
+            hset = query.split("/*+")[1].split("*/")[0]
+            for dk in self.disables:
+                if f"Set({dk}" in hset:
+                    pp = hset.split(f"Set({dk}")
+                    pbefore = pp[0]
+                    pafter = pp[1][pp[1].index(")")+1:]
+                    hset = pbefore + " " + pafter
+
+            query = query.split("*/")[-1]
+            query = "/*+ " + hset + " */\n" + query
+        return query
+
     def explain(self, query: str) -> str:
         """Explain a query and return the json query plan"""
+        query = self._rewrite_with_disables(query)
         self.cursor.execute(f'EXPLAIN (FORMAT JSON) {query}')
         return json.dumps(self.cursor.fetchone()[0][0]['Plan'])
 
     def execute(self, query: str) -> DBConnector.TimedResult:
         """Execute the query and return its result"""
         begin = time.time_ns()
+        query = self._rewrite_with_disables(query)
         self.cursor.execute(query)
         result = self.cursor.fetchall()
         elapsed_time_usec = int((time.time_ns() - begin) / 1_000)
